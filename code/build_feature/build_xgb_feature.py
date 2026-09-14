@@ -42,10 +42,11 @@ def prepare_df(raw: pd.DataFrame) -> pd.DataFrame:
     return out.dropna(subset=FEAT_COLS).reset_index(drop=True)
 
 
-def iter_segments(raw: pd.DataFrame) -> list[pd.DataFrame]:
+def iter_segments(raw: pd.DataFrame, *, allow_tail: bool = False) -> list[pd.DataFrame]:
     out = prepare_df(raw)
     out["_seg"] = (out["code"].astype(str) != out["code"].astype(str).shift()).cumsum()
-    return [g.reset_index(drop=True) for _, g in out.groupby("_seg") if len(g) >= SPAN]
+    min_len = WINDOW if allow_tail else SPAN
+    return [g.reset_index(drop=True) for _, g in out.groupby("_seg") if len(g) >= min_len]
 
 
 def add_features(seg: pd.DataFrame) -> pd.DataFrame:
@@ -142,17 +143,32 @@ def valid_sample(codes: np.ndarray, closes: np.ndarray, i: int) -> bool:
     return np.isfinite(entry) and np.isfinite(exit_) and entry > 0
 
 
-def build_contract_rows(symbol: str, csv_path: Path) -> list[dict]:
+def valid_window(codes: np.ndarray, closes: np.ndarray, i: int) -> bool:
+    block = codes[i - WINDOW + 1 : i + 1]
+    if len(block) != WINDOW or len(np.unique(block)) != 1:
+        return False
+    entry = closes[i]
+    return bool(np.isfinite(entry) and entry > 0)
+
+
+def build_contract_rows(
+    symbol: str,
+    csv_path: Path,
+    contracts_dir: Path = CONTRACTS_DIR,
+    *,
+    allow_tail: bool = False,
+) -> list[dict]:
     contract_file = csv_path.stem
     rows: list[dict] = []
-    for seg in iter_segments(pd.read_csv(csv_path, parse_dates=["date"])):
+    for seg in iter_segments(pd.read_csv(csv_path, parse_dates=["date"]), allow_tail=allow_tail):
         feat = add_features(seg)
         codes = seg["code"].astype(str).values
         closes = seg["close"].astype(float).values
         dates = seg["date"].values
         vals = feat.loc[:, FEATURE_NAMES].to_numpy(dtype=np.float64)
+        tail_start = len(seg) - HORIZON
 
-        for i in range(WINDOW - 1, len(seg) - HORIZON):
+        for i in range(WINDOW - 1, tail_start):
             if not valid_sample(codes, closes, i):
                 continue
             x = vals[i]
@@ -172,22 +188,53 @@ def build_contract_rows(symbol: str, csv_path: Path) -> list[dict]:
             for j, v in enumerate(x):
                 row[f"f_{j}"] = float(v)
             rows.append(row)
+
+        if allow_tail:
+            for i in range(max(WINDOW - 1, tail_start), len(seg)):
+                if not valid_window(codes, closes, i):
+                    continue
+                x = vals[i]
+                if not np.isfinite(x).all():
+                    continue
+                row = {
+                    "date": dates[i],
+                    "symbol": symbol,
+                    "code": codes[i],
+                    "contract_file": contract_file,
+                    "seg_idx": i,
+                    "label": -1,
+                    "ret_5d": np.nan,
+                    "exit_date": pd.NaT,
+                }
+                for j, v in enumerate(x):
+                    row[f"f_{j}"] = float(v)
+                rows.append(row)
     return rows
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", type=Path, default=XGB_FEATURES_CSV)
+    parser.add_argument("--symbols", nargs="*", default=None, help="symbols to build (default: all)")
+    parser.add_argument("--contracts-dir", type=Path, default=CONTRACTS_DIR)
+    parser.add_argument(
+        "--allow-tail",
+        action="store_true",
+        help="emit features for latest days without full forward horizon (infer)",
+    )
     args = parser.parse_args()
 
     all_rows: list[dict] = []
-    for symbol in sorted(p.name for p in CONTRACTS_DIR.iterdir() if p.is_dir()):
+    symbols = args.symbols or sorted(p.name for p in args.contracts_dir.iterdir() if p.is_dir())
+    for symbol in symbols:
         if symbol in REMOVED_SYMBOLS:
             print(f"{symbol}: skip (removed)")
             continue
         sym_n = 0
-        for csv_path in sorted((CONTRACTS_DIR / symbol).glob("*.csv")):
-            rows = build_contract_rows(symbol, csv_path)
+        for csv_path in sorted((args.contracts_dir / symbol).glob("*.csv")):
+            rows = build_contract_rows(
+                symbol, csv_path, args.contracts_dir, allow_tail=args.allow_tail
+            )
             sym_n += len(rows)
             all_rows.extend(rows)
         print(f"{symbol}: {sym_n} samples")

@@ -40,10 +40,11 @@ def prepare_df(raw: pd.DataFrame) -> pd.DataFrame:
     return out.dropna(subset=FEAT_COLS).reset_index(drop=True)
 
 
-def iter_segments(raw: pd.DataFrame) -> list[pd.DataFrame]:
+def iter_segments(raw: pd.DataFrame, *, allow_tail: bool = False) -> list[pd.DataFrame]:
     out = prepare_df(raw)
     out["_seg"] = (out["code"].astype(str) != out["code"].astype(str).shift()).cumsum()
-    return [g.reset_index(drop=True) for _, g in out.groupby("_seg") if len(g) >= WINDOW + GAF_HORIZON]
+    min_len = WINDOW if allow_tail else WINDOW + GAF_HORIZON
+    return [g.reset_index(drop=True) for _, g in out.groupby("_seg") if len(g) >= min_len]
 
 
 def valid_sample(codes: np.ndarray, feats: np.ndarray, closes: np.ndarray, i: int) -> bool:
@@ -57,7 +58,20 @@ def valid_sample(codes: np.ndarray, feats: np.ndarray, closes: np.ndarray, i: in
     return np.isfinite(entry_close) and np.isfinite(exit_close) and entry_close > 0
 
 
-def collect_contract(symbol: str, csv_path: Path) -> dict[str, np.ndarray]:
+def valid_window(codes: np.ndarray, feats: np.ndarray, i: int) -> bool:
+    block = codes[i - WINDOW + 1 : i + 1]
+    if len(block) != WINDOW or len(np.unique(block)) != 1:
+        return False
+    return bool(np.isfinite(feats[i - WINDOW + 1 : i + 1]).all())
+
+
+def collect_contract(
+    symbol: str,
+    csv_path: Path,
+    contracts_dir: Path = CONTRACTS_DIR,
+    *,
+    allow_tail: bool = False,
+) -> dict[str, np.ndarray]:
     contract_file = csv_path.stem
     date: list[np.datetime64] = []
     exit_date: list[np.datetime64] = []
@@ -69,12 +83,14 @@ def collect_contract(symbol: str, csv_path: Path) -> dict[str, np.ndarray]:
     x_rows: list[np.ndarray] = []
     wd_rows: list[np.ndarray] = []
 
-    for seg in iter_segments(pd.read_csv(csv_path, parse_dates=["date"])):
+    for seg in iter_segments(pd.read_csv(csv_path, parse_dates=["date"]), allow_tail=allow_tail):
         codes = seg["code"].astype(str).values
         closes = seg["close"].astype(float).values
         feats = seg[FEAT_COLS].astype(float).values
         dates = seg["date"].values.astype("datetime64[ns]")
-        for i in range(WINDOW - 1, len(seg) - GAF_HORIZON):
+        tail_start = len(seg) - GAF_HORIZON if allow_tail else len(seg)
+
+        for i in range(WINDOW - 1, tail_start):
             if not valid_sample(codes, feats, closes, i):
                 continue
             win = feats[i - WINDOW + 1 : i + 1]
@@ -91,6 +107,25 @@ def collect_contract(symbol: str, csv_path: Path) -> dict[str, np.ndarray]:
             log_ret_1d.append(np.float32(np.log(closes[i + 1] / closes[i])))
             x_rows.append(normed.reshape(-1))
             wd_rows.append(dates[i - WINDOW + 1 : i + 1])
+
+        if allow_tail:
+            for i in range(max(WINDOW - 1, tail_start), len(seg)):
+                if not valid_window(codes, feats, i):
+                    continue
+                win = feats[i - WINDOW + 1 : i + 1]
+                normed = normalize_window(win.astype(np.float32, copy=False))
+                date.append(dates[i])
+                exit_date.append(np.datetime64("NaT"))
+                code.append(codes[i])
+                seg_idx.append(i)
+                ret_3d.append(np.float32(np.nan))
+                label.append(np.int32(-1))
+                if i + 1 < len(seg):
+                    log_ret_1d.append(np.float32(np.log(closes[i + 1] / closes[i])))
+                else:
+                    log_ret_1d.append(np.float32(np.nan))
+                x_rows.append(normed.reshape(-1))
+                wd_rows.append(dates[i - WINDOW + 1 : i + 1])
 
     return {
         "date": np.asarray(date, dtype="datetime64[ns]"),
@@ -143,33 +178,42 @@ def write_symbol_csv(path: Path, symbol: str, data: dict[str, np.ndarray]) -> No
     pd.DataFrame(cols).to_csv(path, index=False)
 
 
-def build_symbol(symbol: str) -> int:
-    out_path = GAF_FEATURES_DIR / f"{symbol}.csv"
+def build_symbol(
+    symbol: str,
+    *,
+    contracts_dir: Path = CONTRACTS_DIR,
+    out_dir: Path = GAF_FEATURES_DIR,
+    allow_tail: bool = False,
+) -> int:
+    out_path = out_dir / f"{symbol}.csv"
     if out_path.exists():
         out_path.unlink()
 
     chunks: list[dict[str, np.ndarray]] = []
-    for csv_path in sorted((CONTRACTS_DIR / symbol).glob("*.csv")):
-        chunks.append(collect_contract(symbol, csv_path))
+    for csv_path in sorted((contracts_dir / symbol).glob("*.csv")):
+        chunks.append(collect_contract(symbol, csv_path, contracts_dir, allow_tail=allow_tail))
 
     data = concat_chunks(chunks)
     write_symbol_csv(out_path, symbol, data)
     return len(data["date"])
 
 
-def merge_symbols() -> None:
-    skip = {GAF_FEATURES_CSV.name, "class_counts_by_symbol.csv"}
-    parts = sorted(p for p in GAF_FEATURES_DIR.glob("*.csv") if p.name not in skip)
+def merge_symbols(out_dir: Path = GAF_FEATURES_DIR) -> None:
+    merged = out_dir / "all.csv"
+    if merged.exists():
+        merged.unlink()
+    skip = {merged.name, "class_counts_by_symbol.csv"}
+    parts = sorted(p for p in out_dir.glob("*.csv") if p.name not in skip)
 
     n_rows = 0
     for i, path in enumerate(tqdm(parts, desc="merge")):
         df = pd.read_csv(path, parse_dates=["date", "exit_date", *WD_COLS])
         for col in WD_COLS:
             df[col] = pd.to_datetime(df[col], errors="coerce").dt.strftime("%Y-%m-%d")
-        df.to_csv(GAF_FEATURES_CSV, mode="w" if i == 0 else "a", header=i == 0, index=False)
+        df.to_csv(merged, mode="w" if i == 0 else "a", header=i == 0, index=False)
         n_rows += len(df)
 
-    print(f"merged {len(parts)} symbols -> {GAF_FEATURES_CSV} rows={n_rows}")
+    print(f"merged {len(parts)} symbols -> {merged} rows={n_rows}")
 
 
 def summarize_class_counts() -> pd.DataFrame:
@@ -205,15 +249,33 @@ def verify_symbol(symbol: str) -> None:
 
 
 def main() -> None:
-    GAF_FEATURES_DIR.mkdir(parents=True, exist_ok=True)
-    if GAF_FEATURES_CSV.exists():
-        GAF_FEATURES_CSV.unlink()
-    symbols = sorted(p.name for p in CONTRACTS_DIR.iterdir() if p.is_dir())
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--symbols", nargs="*", default=None, help="symbols to build (default: all)")
+    parser.add_argument("--out-dir", type=Path, default=GAF_FEATURES_DIR)
+    parser.add_argument("--contracts-dir", type=Path, default=CONTRACTS_DIR)
+    parser.add_argument(
+        "--allow-tail",
+        action="store_true",
+        help="emit window features for latest days without full forward horizon (infer)",
+    )
+    args = parser.parse_args()
+
+    out_dir = args.out_dir
+    out_dir.mkdir(parents=True, exist_ok=True)
+    symbols = args.symbols or sorted(p.name for p in args.contracts_dir.iterdir() if p.is_dir())
     for symbol in tqdm(symbols, desc="build"):
-        n = build_symbol(symbol)
-        tqdm.write(f"{symbol}: saved {n} -> {GAF_FEATURES_DIR / f'{symbol}.csv'}")
-    merge_symbols()
-    summarize_class_counts()
+        n = build_symbol(
+            symbol,
+            contracts_dir=args.contracts_dir,
+            out_dir=out_dir,
+            allow_tail=args.allow_tail,
+        )
+        tqdm.write(f"{symbol}: saved {n} -> {out_dir / f'{symbol}.csv'}")
+    merge_symbols(out_dir)
+    if out_dir == GAF_FEATURES_DIR:
+        summarize_class_counts()
 
 
 if __name__ == "__main__":

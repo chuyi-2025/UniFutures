@@ -32,8 +32,18 @@ KRONOS_TOKENIZER = Path(f"{DIR}/weights/Kronos-Tokenizer-base")
 
 # 低流动性 / 已退市品种，不参与训练与回测
 REMOVED_SYMBOLS = frozenset(
-    {"WR", "ZC", "RR", "RI", "JR", "LR", "WH", "PM", "FB", "BB"}
+    {"WR", "ZC", "RR", "RI", "JR", "LR", "WH", "PM", "FB", "BB", "BC"}
 )
+GAF_SKIP_STEMS = frozenset({"all", "class_counts_by_symbol"})
+
+
+def list_symbols() -> list[str]:
+    """Active symbols with GAF features, excluding REMOVED_SYMBOLS."""
+    return sorted(
+        p.stem.upper()
+        for p in GAF_FEATURES_DIR.glob("*.csv")
+        if p.stem not in GAF_SKIP_STEMS and p.stem.upper() not in REMOVED_SYMBOLS
+    )
 
 
 def ret_to_label(ret: float) -> int:
