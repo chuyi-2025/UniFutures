@@ -1,0 +1,71 @@
+# Macro features for AU / AG / SC research.
+
+targets:
+  AU:
+    name_cn: 黄金
+  AG:
+    name_cn: 白银
+  SC:
+    name_cn: 原油
+
+# Free sources: FRED CSV (no key), Yahoo chart API.
+fred_series:
+  - id: DTWEXBGS
+    name: usd_broad
+    freq: D
+    note: Trade Weighted U.S. Dollar Index Broad
+  - id: DEXUSEU
+    name: usd_eur
+    freq: D
+    note: USD per EUR
+  - id: DGS2
+    name: us_2y
+    freq: D
+    note: 2-Year Treasury
+  - id: DGS10
+    name: us_10y
+    freq: D
+    note: 10-Year Treasury
+  - id: T10Y2Y
+    name: us_curve_10y2y
+    freq: D
+    note: 10Y-2Y spread
+  - id: FEDFUNDS
+    name: fed_funds
+    freq: M
+    note: Effective Federal Funds Rate monthly
+  - id: DFF
+    name: fed_funds_daily
+    freq: D
+    note: Daily Effective FF
+  - id: UNRATE
+    name: us_unemp
+    freq: M
+    note: Civilian Unemployment Rate
+  - id: CPIAUCSL
+    name: us_cpi
+    freq: M
+    note: CPI all urban
+  - id: VIXCLS
+    name: vix
+    freq: D
+    note: VIX
+
+yahoo_tickers:
+  - symbol: DX-Y.NYB
+    name: dxy
+    note: ICE U.S. Dollar Index
+  - symbol: ^TNX
+    name: us_10y_yaho
+    note: 10Y yield Yahoo
+  - symbol: CL=F
+    name: wti_spot
+    note: WTI continuous (context for SC)
+  - symbol: GC=F
+    name: gold_cfd
+    note: Gold continuous (context)
+
+defaults:
+  start_date: "2015-01-01"
+  # Market-implied "hike pressure": 2Y yield minus daily FF (pp)
+  hike_proxy: us_2y_minus_ff

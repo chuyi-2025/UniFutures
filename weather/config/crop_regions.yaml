@@ -1,0 +1,82 @@
+# China domestic ag crops — production-region weather points.
+# Symbols avoid heavily import-driven names (soybean, palm, etc.).
+
+defaults:
+  start_date: "2015-01-01"
+  timezone: "Asia/Shanghai"
+  gdd_base_c: 10.0
+
+symbols:
+  CF:
+    name_cn: 棉花
+    phenology_months: [4, 5, 6, 7, 8, 9, 10]
+    frost_months: [4, 5]
+    stations:
+      - id: cf_shihezi
+        name: 石河子
+        lat: 44.31
+        lon: 86.08
+        weight: 0.40
+      - id: cf_akesu
+        name: 阿克苏
+        lat: 41.17
+        lon: 80.26
+        weight: 0.35
+      - id: cf_korla
+        name: 库尔勒
+        lat: 41.73
+        lon: 86.17
+        weight: 0.25
+
+  SR:
+    name_cn: 白糖
+    phenology_months: [5, 6, 7, 8, 9, 10, 11, 12, 1, 2, 3]
+    frost_months: []
+    stations:
+      - id: sr_chongzuo
+        name: 崇左
+        lat: 22.42
+        lon: 107.37
+        weight: 0.45
+      - id: sr_nanning
+        name: 南宁
+        lat: 22.82
+        lon: 108.37
+        weight: 0.30
+      - id: sr_lincang
+        name: 临沧
+        lat: 23.88
+        lon: 100.09
+        weight: 0.25
+
+  AP:
+    name_cn: 苹果
+    phenology_months: [3, 4, 5, 6, 7, 8, 9, 10]
+    frost_months: [3, 4, 5]
+    stations:
+      - id: ap_luochuan
+        name: 洛川
+        lat: 35.76
+        lon: 109.43
+        weight: 0.55
+      - id: ap_qixia
+        name: 栖霞
+        lat: 37.30
+        lon: 120.83
+        weight: 0.45
+
+  CJ:
+    name_cn: 红枣
+    phenology_months: [5, 6, 7, 8, 9, 10]
+    frost_months: [5]
+    stations:
+      - id: cj_ruoqiang
+        name: 若羌
+        lat: 39.02
+        lon: 88.17
+        weight: 0.55
+      - id: cj_akesu
+        name: 阿克苏
+        lat: 41.17
+        lon: 80.26
+        weight: 0.45

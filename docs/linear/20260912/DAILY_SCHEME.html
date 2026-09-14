@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UniFutures Daily 定稿方案与实验回测</title>
+  <style>
+    :root {
+      --bg: #f8f9fb;
+      --card: #fff;
+      --text: #1a1a2e;
+      --muted: #5c6370;
+      --accent: #2563eb;
+      --accent-light: #eff6ff;
+      --border: #e2e8f0;
+      --green: #059669;
+      --red: #dc2626;
+      --star: #d97706;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      padding: 2rem 1rem 4rem;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; }
+    header {
+      background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+      color: #fff;
+      padding: 2.5rem 2rem;
+      border-radius: 12px;
+      margin-bottom: 2rem;
+    }
+    header h1 { font-size: 1.75rem; font-weight: 700; margin-bottom: .5rem; }
+    header p { opacity: .88; font-size: .95rem; }
+    .badge {
+      display: inline-block;
+      background: rgba(255,255,255,.2);
+      padding: .2rem .65rem;
+      border-radius: 999px;
+      font-size: .8rem;
+      margin-top: .75rem;
+      margin-right: .4rem;
+    }
+    section {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem 1.75rem;
+      margin-bottom: 1.25rem;
+    }
+    h2 {
+      font-size: 1.2rem;
+      color: var(--accent);
+      border-bottom: 2px solid var(--accent-light);
+      padding-bottom: .5rem;
+      margin-bottom: 1rem;
+    }
+    h3 { font-size: 1rem; margin: 1.25rem 0 .6rem; color: #334155; }
+    p, li { font-size: .93rem; }
+    p { margin-bottom: .75rem; }
+    ul { padding-left: 1.25rem; margin-bottom: .75rem; }
+    li { margin-bottom: .3rem; }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    pre.rules {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      font-size: .82rem;
+      line-height: 1.7;
+      overflow-x: auto;
+      margin: .75rem 0 1rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .85rem;
+      margin: .75rem 0 1rem;
+    }
+    th, td {
+      border: 1px solid var(--border);
+      padding: .45rem .65rem;
+      text-align: left;
+    }
+    th { background: var(--accent-light); font-weight: 600; white-space: nowrap; }
+    tr:nth-child(even) { background: #f8fafc; }
+    .num { text-align: right; font-variant-numeric: tabular-nums; }
+    .good { color: var(--green); font-weight: 600; }
+    .bad { color: var(--red); }
+    .star { color: var(--star); font-weight: 700; }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: .75rem;
+      margin: 1rem 0;
+    }
+    .metric {
+      background: var(--accent-light);
+      border-radius: 8px;
+      padding: .85rem;
+      text-align: center;
+    }
+    .metric .val { font-size: 1.35rem; font-weight: 700; color: var(--accent); }
+    .metric .lbl { font-size: .75rem; color: var(--muted); margin-top: .2rem; }
+    .latest-box {
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin: .75rem 0;
+    }
+    .timeline { border-left: 3px solid var(--accent); padding-left: 1rem; margin: .5rem 0; }
+    .timeline-item { margin-bottom: .65rem; font-size: .88rem; }
+    .timeline-item strong { color: var(--accent); }
+    footer {
+      text-align: center;
+      color: var(--muted);
+      font-size: .8rem;
+      margin-top: 2rem;
+    }
+    .nav { margin-bottom: 1rem; font-size: .85rem; }
+    .nav a { margin-right: 1rem; }
+    @media (max-width: 600px) {
+      header { padding: 1.5rem; }
+      section { padding: 1rem; }
+      table { font-size: .78rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>UniFutures Daily 定稿方案</h1>
+    <p>pos64+RSI 叠加 · 一手保证金≤5万 · BOOK≥1.18 全平 · 100万账户整数1手</p>
+    <span class="badge">更新 2026-09-10</span>
+    <span class="badge">Sharpe 1.25（扣费后）</span>
+    <span class="badge">回撤 −3.95%</span>
+  </header>
+
+  <nav class="nav">
+    <a href="#current">当前方案</a>
+    <a href="#search">方案搜索</a>
+    <a href="#margin">保证金手续费</a>
+    <a href="#cron">每日运行</a>
+    <a href="#experiments">历史实验</a>
+    <a href="EXPERIMENTS_SUMMARY.md">实验全文 MD</a>
+    <a href="MARGIN_FEE_CHECK.md">保证金对照 MD</a>
+  </nav>
+
+  <!-- 1. 当前方案 -->
+  <section id="current">
+    <h2>1. 当前定稿方案</h2>
+    <pre class="rules">【账户】100 万人民币
+【宇宙】一手券商保证金 ≤ 5 万（排除金/银/铜/股指/原油等）
+【信号】pos64 截面 1多1空 + RSI 截面 1多1空，同向合并、反向抵消
+【手数】每品种 1 手，最多 4 个品种
+【风控】BOOK ≥ 1.18 → 全平空仓
+【成交】收盘信号，次日开盘成交
+【盈亏】log1p((盈亏 − 手续费) / 100万)</pre>
+
+    <div class="metrics">
+      <div class="metric"><div class="val good">+89.8%</div><div class="lbl">全样本收益</div></div>
+      <div class="metric"><div class="val good">1.25</div><div class="lbl">Sharpe</div></div>
+      <div class="metric"><div class="val good">−3.95%</div><div class="lbl">最大回撤</div></div>
+      <div class="metric"><div class="val">35%</div><div class="lbl">空仓占比</div></div>
+      <div class="metric"><div class="val">2.25</div><div class="lbl">2026 Sharpe</div></div>
+      <div class="metric"><div class="val">1,874</div><div class="lbl">年均手续费(元)</div></div>
+    </div>
+
+    <h3>产出文件（daily/linear/）</h3>
+    <table>
+      <tr><th>文件</th><th>说明</th></tr>
+      <tr><td><code>final_scheme.json</code></td><td>定稿快照（全样本 + 当年 + 最新日）</td></tr>
+      <tr><td><code>final_scheme_daily.csv</code></td><td>当年每日汇总</td></tr>
+      <tr><td><code>final_scheme_ledger.csv</code></td><td>逐腿台账（含手续费列）</td></tr>
+      <tr><td><code>final_scheme_latest.csv</code></td><td>仅最新一行</td></tr>
+    </table>
+
+    <div class="latest-box">
+      <strong>最新一日 2026-09-10</strong>：空仓（BOOK=0.778），手数 0。<br>
+      上一日 09-09 持仓：橡胶 1多@19770、不锈钢 1空@13845，保证金 42,016。
+    </div>
+  </section>
+
+  <!-- 2. 2026 分月 -->
+  <section>
+    <h2>2. 2026 分月表现</h2>
+    <table>
+      <tr><th>月</th><th class="num">收益</th><th class="num">Sharpe</th><th class="num">回撤</th><th class="num">空仓</th></tr>
+      <tr><td>2026-01</td><td class="num">0%</td><td class="num">—</td><td class="num">—</td><td class="num">100%</td></tr>
+      <tr><td>2026-02</td><td class="num">0%</td><td class="num">—</td><td class="num">—</td><td class="num">100%</td></tr>
+      <tr><td>2026-03</td><td class="num good">+1.7%</td><td class="num">4.87</td><td class="num">−0.3%</td><td class="num">73%</td></tr>
+      <tr><td>2026-04</td><td class="num good">+1.8%</td><td class="num">6.63</td><td class="num">≈0%</td><td class="num">67%</td></tr>
+      <tr><td>2026-05</td><td class="num bad">−0.2%</td><td class="num">−0.78</td><td class="num">−0.6%</td><td class="num">67%</td></tr>
+      <tr><td>2026-06</td><td class="num good">+0.5%</td><td class="num">3.06</td><td class="num">−0.3%</td><td class="num">71%</td></tr>
+      <tr><td>2026-07</td><td class="num">+0.05%</td><td class="num">0.17</td><td class="num">−1.2%</td><td class="num">0%</td></tr>
+      <tr><td>2026-08</td><td class="num bad">−0.2%</td><td class="num">−0.97</td><td class="num">−0.9%</td><td class="num">0%</td></tr>
+      <tr><td>2026-09</td><td class="num good">+0.9%</td><td class="num">7.17</td><td class="num">−0.06%</td><td class="num">25%</td></tr>
+    </table>
+  </section>
+
+  <!-- 3. 方案搜索 -->
+  <section id="search">
+    <h2>3. 方案搜索与选型</h2>
+    <p>在 <code>pos64_margin_cap_search.py</code> 中搜索 900 组参数，33 组满足 Sharpe≥1、回撤&lt;10%、空仓 20%–50%。</p>
+    <table>
+      <tr><th>方案</th><th class="num">Sharpe</th><th class="num">回撤</th><th class="num">空仓</th><th class="num">2026 Sh</th><th class="num">负年</th><th class="num">保证金</th></tr>
+      <tr>
+        <td><span class="star">★</span> pos64+RSI 1多1空，≤5万，BOOK≥1.18</td>
+        <td class="num good">1.25*</td><td class="num good">−3.9%</td><td class="num">35%</td>
+        <td class="num">2.25</td><td class="num">1</td><td class="num">~4.3万</td>
+      </tr>
+      <tr>
+        <td>RSI 3多3空，≤8万，BOOK≥1.14</td>
+        <td class="num">1.14</td><td class="num">−8.9%</td><td class="num">33%</td>
+        <td class="num">1.83</td><td class="num">0</td><td class="num">~9.0万</td>
+      </tr>
+      <tr>
+        <td>pos64 3多3空，≤5万，波动6%缩仓</td>
+        <td class="num">1.05</td><td class="num">−7.9%</td><td class="num">25%</td>
+        <td class="num">1.44</td><td class="num">0</td><td class="num">~7.2万</td>
+      </tr>
+    </table>
+    <p style="font-size:.82rem;color:var(--muted)">* 扣费后 Sharpe；搜索期扣费前为 1.30。</p>
+
+    <h3>BOOK 阈值敏感性</h3>
+    <table>
+      <tr><th>BOOK 阈值</th><th class="num">Sharpe</th><th class="num">收益</th><th class="num">空仓</th><th class="num">负年</th></tr>
+      <tr><td>≥1.10</td><td class="num">1.27</td><td class="num">+85%</td><td class="num">40%</td><td class="num">2</td></tr>
+      <tr><td>≥1.14</td><td class="num">1.25</td><td class="num">+88%</td><td class="num">38%</td><td class="num">1</td></tr>
+      <tr><td><span class="star">★</span> ≥1.18</td><td class="num good">1.25</td><td class="num">+90%</td><td class="num">35%</td><td class="num">1</td></tr>
+      <tr><td>≥1.22</td><td class="num">1.29</td><td class="num">+97%</td><td class="num">32%</td><td class="num">1</td></tr>
+    </table>
+  </section>
+
+  <!-- 4. 保证金 -->
+  <section id="margin">
+    <h2>4. 保证金与手续费</h2>
+    <table>
+      <tr><th>项目</th><th>结论</th></tr>
+      <tr><td>保证金来源</td><td>东方财富期货 2026-09-09（含期货公司加收）</td></tr>
+      <tr><td>对照</td><td><a href="https://github.com/qhcg66/shouxufei" target="_blank">shouxufei</a> 主力合约；乘数 82 品种一致</td></tr>
+      <tr><td>券商 vs 交易所</td><td>加收约 +5~10pp（均值 +10.3pp），合理</td></tr>
+      <tr><td>≤5万可选池</td><td>67/87 品种</td></tr>
+      <tr><td>手续费</td><td>交易所标准 open + 平昨；累计 29,244 元（16年）</td></tr>
+    </table>
+    <p>2026 成交品种（26）：AP, B, BR, CF, CY, EC, FG, HC, I, JD, LC, LH, NI, NR, OI, PB, PR, PS, PX, RB, RU, SH, SI, SM, SS, T</p>
+  </section>
+
+  <!-- 5. 每日运行 -->
+  <section id="cron">
+    <h2>5. 每日运行流程</h2>
+    <table>
+      <tr><th>时间</th><th>任务</th></tr>
+      <tr><td>04:00</td><td>Tree-Stock 全量合约 CSV</td></tr>
+      <tr><td>19:30</td><td>Tree-Stock 当日行情</td></tr>
+      <tr><td>19:40</td><td>PPO infer</td></tr>
+      <tr><td><strong>19:50</strong></td><td><strong>Linear 定稿 blotter → daily/linear/</strong></td></tr>
+    </table>
+    <pre class="rules">SKIP_UPDATE=1 bash code/experiment/run_final_scheme.sh</pre>
+  </section>
+
+  <!-- 6. 历史实验 -->
+  <section id="experiments">
+    <h2>6. 历史实验与回测</h2>
+
+    <h3>6.1 策略演进</h3>
+    <div class="timeline">
+      <div class="timeline-item"><strong>A</strong> 季度切换 + 全截面 20% → Sh 0.96，回撤 −26%</div>
+      <div class="timeline-item"><strong>B</strong> 2 品种 + 日亏 2% 空 5 日 → Sh 0.74</div>
+      <div class="timeline-item"><strong>C–D</strong> 6 品种 / 波动瞄准 8% → Sh 0.95–1.10（需分数手）</div>
+      <div class="timeline-item"><strong>E–G</strong> BOOK 手数 + 模型轮换 → Sh 1.00–1.17（等权 1 手）</div>
+      <div class="timeline-item"><strong>H ★</strong> pos64+RSI + ≤5万 + BOOK≥1.18 → <span class="good">Sh 1.25，回撤 −3.95%</span>（当前定稿）</div>
+    </div>
+
+    <h3>6.2 底层信号（全截面，无保证金约束）</h3>
+    <table>
+      <tr><th>模型</th><th class="num">收益</th><th class="num">Sharpe</th><th class="num">回撤</th></tr>
+      <tr><td>pos64</td><td class="num">+614%</td><td class="num">0.79</td><td class="num bad">−28.6%</td></tr>
+      <tr><td>Ridge 季重估</td><td class="num">+730%</td><td class="num">0.85</td><td class="num bad">−34.1%</td></tr>
+      <tr><td>季度 rotate</td><td class="num">+1014%</td><td class="num">0.96</td><td class="num bad">−26.1%</td></tr>
+      <tr><td>等权买入持有</td><td class="num">+35%</td><td class="num">0.17</td><td class="num bad">−52.7%</td></tr>
+    </table>
+
+    <h3>6.3 模型轮换（100万 1手 + BOOK）</h3>
+    <table>
+      <tr><th>方案</th><th class="num">Sharpe</th><th class="num">回撤</th><th class="num">最差年 Sh</th><th class="num">负年</th></tr>
+      <tr><td>季度波动切换</td><td class="num">1.00</td><td class="num">−17.3%</td><td class="num">−0.15</td><td class="num">2</td></tr>
+      <tr><td>固定 pos64</td><td class="num">0.99</td><td class="num good">−9.9%</td><td class="num">−0.25</td><td class="num good">1</td></tr>
+      <tr><td>近 20 日赢家</td><td class="num good">1.17</td><td class="num">−14.6%</td><td class="num bad">−0.83</td><td class="num bad">4</td></tr>
+      <tr><td>20日 + margin 3%</td><td class="num">0.92</td><td class="num">−12.7%</td><td class="num">−0.15</td><td class="num">2</td></tr>
+    </table>
+
+    <h3>6.4 持仓构造（季度切换）</h3>
+    <table>
+      <tr><th>方案</th><th class="num">收益</th><th class="num">Sharpe</th><th class="num">回撤</th></tr>
+      <tr><td>2 品种</td><td class="num">+533%</td><td class="num">0.63</td><td class="num bad">−38.6%</td></tr>
+      <tr><td>4 品种</td><td class="num">+488%</td><td class="num">0.82</td><td class="num">−26.9%</td></tr>
+      <tr><td>6 品种</td><td class="num">+475%</td><td class="num">0.95</td><td class="num">−25.9%</td></tr>
+      <tr><td>6 品种 + 日亏2%空5日</td><td class="num">+468%</td><td class="num">0.98</td><td class="num">−25.6%</td></tr>
+      <tr><td>全截面 20%</td><td class="num">+1014%</td><td class="num">0.96</td><td class="num">−26.1%</td></tr>
+    </table>
+
+    <h3>6.5 风控（2 品种 + 季度切换）</h3>
+    <table>
+      <tr><th>方案</th><th class="num">收益</th><th class="num">Sharpe</th><th class="num">回撤</th></tr>
+      <tr><td>无控制</td><td class="num">+445%</td><td class="num">0.58</td><td class="num bad">−38.2%</td></tr>
+      <tr><td>日亏 &gt;2% 空 5 日</td><td class="num">+563%</td><td class="num">0.74</td><td class="num">−25.6%</td></tr>
+      <tr><td>回撤 &gt;10% 空 10 日</td><td class="num">+132%</td><td class="num">0.52</td><td class="num">−18.9%</td></tr>
+      <tr><td>波动瞄准 10%</td><td class="num">+221%</td><td class="num">0.66</td><td class="num">−26.8%</td></tr>
+    </table>
+
+    <h3>6.6 波动瞄准（6 品种，需分数手）</h3>
+    <table>
+      <tr><th>方案</th><th class="num">Sharpe</th><th class="num">回撤</th></tr>
+      <tr><td>无控制</td><td class="num">0.95</td><td class="num">−25.9%</td></tr>
+      <tr><td>波动瞄准 8%</td><td class="num good">1.10</td><td class="num good">−14.0%</td></tr>
+      <tr><td>波动瞄准 8%（10 品种）</td><td class="num good">1.25</td><td class="num good">−14.2%</td></tr>
+    </table>
+
+    <h3>6.7 早期等权方案（已废弃）</h3>
+    <table>
+      <tr><th>方案</th><th class="num">Sharpe</th><th class="num">回撤</th><th class="num">负年</th></tr>
+      <tr><td>季度波动 + BOOK 1.1</td><td class="num">1.00</td><td class="num">−17.3%</td><td class="num">2</td></tr>
+      <tr><td>近 20 日赢家 + BOOK 1.1</td><td class="num good">1.17</td><td class="num">−14.6%</td><td class="num bad">4</td></tr>
+      <tr><td>固定 pos64 + BOOK 1.1</td><td class="num">0.99</td><td class="num good">−9.9%</td><td class="num good">1</td></tr>
+    </table>
+
+    <h3>6.8 实验脚本</h3>
+    <table>
+      <tr><th>脚本</th><th>产出</th></tr>
+      <tr><td><code>two_model_rotate.py</code></td><td>季度 pos64/Ridge 切换</td></tr>
+      <tr><td><code>six_name_select.py</code></td><td>2/4/6 品种 + 日亏止损</td></tr>
+      <tr><td><code>two_name_dd_control.py</code></td><td>风控对比</td></tr>
+      <tr><td><code>regime_model_search.py</code></td><td>regime 因子搜索</td></tr>
+      <tr><td><code>pos64_margin_cap_search.py</code></td><td>1 手 + 保证金搜索</td></tr>
+      <tr><td><code>pos64_rsi_overlay_2026_blotter.py</code></td><td><strong>daily 定稿生成</strong></td></tr>
+    </table>
+  </section>
+
+  <!-- 7. PPO -->
+  <section>
+    <h2>7. PPO Daily 线（独立）</h2>
+    <p><code>daily/ppo/</code> 为 9 品种 infer 宇宙（PPO/Kronos/XGB/GAF），与 Linear 77 品种定稿并行、不可直接对比。Cron 19:40 运行。</p>
+  </section>
+
+  <footer>
+    UniFutures · 回测均为历史模拟，不构成投资建议 ·
+    <a href="DAILY_SCHEME.md">Markdown 版</a> ·
+    <a href="EXPERIMENTS_SUMMARY.md">实验全文</a>
+  </footer>
+
+</div>
+</body>
+</html>

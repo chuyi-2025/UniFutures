@@ -1,0 +1,33 @@
+# Calendar / roll / delivery-month strategy universe
+# Non-weather seasonality: contract mechanics only
+
+symbols:
+  # Core-adjacent (low margin, liquid)
+  - RB
+  - HC
+  - M
+  - Y
+  - P
+  - CF   # 棉花 — weather leg 已覆盖，此处看换月正交性
+  - SR   # 白糖
+  - AP   # 苹果
+  - CJ   # 红枣
+  # Precious / macro overlap
+  - AU
+  - AG
+  # Black chain
+  - I
+  - J
+
+# Approximate roll: main = first contract with expiry month > trade_month + roll_offset
+roll_offset: 3
+
+# Delivery-month window: trade only when near rank-1 enters delivery calendar month
+delivery:
+  pre_days: 15      # trading days before delivery month
+  in_month: true    # include delivery calendar month
+
+# Roll window: days around main-contract code switch (pick_main_fast)
+roll:
+  pre_days: 5
+  post_days: 5

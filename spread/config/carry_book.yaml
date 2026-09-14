@@ -1,0 +1,22 @@
+# Carry book definitions (speculator near/far, z-score mean-reversion)
+# Schemes loaded from data/results/search_speculator/spread_search_best.csv
+
+books:
+  carry4:
+    label: HC/AU/Y/P 近远月等权
+    symbols: [HC, AU, Y, P]
+    mode: speculator
+    lots_per_leg: 1
+    capital: 1000000
+    start: 2018-01-01
+    note: |
+      定稿四品种：Sharpe>2.6、扣费后段胜率>83%、持仓质量优于 RB/AG/M。
+      AU 保证金重，实盘需总保证金帽。
+
+  carry7:
+    label: 全 carry universe 等权
+    symbols: [HC, AU, Y, P, RB, AG, M]
+    mode: speculator
+    lots_per_leg: 1
+    capital: 1000000
+    start: 2018-01-01

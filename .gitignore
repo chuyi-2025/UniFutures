@@ -1,5 +1,16 @@
 data/
+**/data/
+
+# Large generated / OCR corpora
+news/result/
 
 # Python
 __pycache__/
+*.py[cod]
+*$py.class
 
+# Runtime
+*.log
+*.pid
+.pytest_cache/
+.mypy_cache/

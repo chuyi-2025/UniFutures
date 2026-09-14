@@ -1,0 +1,32 @@
+{
+  "asof": "2026-09-13",
+  "equity_combo": 3000000.0,
+  "macro_util_scale": 0.34285714285714286,
+  "weather_notional": 500000.0,
+  "overlap": [
+    "2024-03-08",
+    "2026-09-08"
+  ],
+  "notes": {
+    "final_official": "1M capital blotter; yearly from final_scheme_yearly.csv",
+    "dual": "Dual-Gated V1 proper BOOK spine 2024-03..2026-09",
+    "macro_landed": "usd_broad_z60 AU long_only thr0.25 hold5 util0.35; combo uses derated util 0.12 + 50% when dual flat",
+    "weather_v3": "phase3 EW book 苹果/棉花/白糖/红枣; research log × 500k proxy (no account blotter yet)",
+    "combo": "dual + macro_gated + weather_v3 proxy; returns = sum pnl / 3M"
+  },
+  "full_combo": {
+    "equity": 3000000.0,
+    "formula": "dual_or_final + macro*(0.12/0.35)*(0.5 if core flat) + weather_log*500k",
+    "news_available_from": "2024-03-08",
+    "macro_weather_from": "2018-01-02",
+    "final_from": "2010-07-01",
+    "end": "2026-09-11",
+    "days": 3933,
+    "overlap_combo_pnl_check": 594748.6,
+    "artifacts": {
+      "daily": "combo_full_daily.csv",
+      "yearly": "combo_full_yearly.csv",
+      "metrics": "metrics_yearly_full_combo.csv"
+    }
+  }
+}

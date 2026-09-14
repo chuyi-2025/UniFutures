@@ -1,0 +1,38 @@
+# Cross-product and calendar spread definitions
+# kind: cross = leg1 - leg2 (yuan/ton or yuan/unit); ratio = leg1/leg2; carry = near - far same symbol
+
+cross:
+  rb_hc:
+    label: 螺纹-热卷
+    leg1: RB
+    leg2: HC
+    kind: cross
+    note: 黑色系价差，主力对主力
+  m_p:
+    label: 豆粕-棕榈
+    leg1: M
+    leg2: P
+    kind: cross
+    note: 豆棕价差（油脂链）
+  y_p:
+    label: 豆油-棕榈
+    leg1: Y
+    leg2: P
+    kind: cross
+    note: 油脂价差
+  au_ag:
+    label: 金银价差
+    leg1: AU
+    leg2: AG
+    kind: cross
+    note: 绝对价差（乘数不同，回测按整数手）
+  au_ag_ratio:
+    label: 金银比
+    leg1: AU
+    leg2: AG
+    kind: ratio
+    note: AU_close / AG_close
+
+carry:
+  # rank 1 vs rank 2 by expiry on same trade date
+  symbols: [RB, HC, M, Y, P, AU, AG]
